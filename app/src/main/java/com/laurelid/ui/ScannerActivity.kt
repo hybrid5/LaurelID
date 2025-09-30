@@ -7,6 +7,9 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
@@ -217,6 +220,7 @@ class ScannerActivity : AppCompatActivity() {
         if (intent == null) return
         val action = intent.action ?: return
         if (action != NfcAdapter.ACTION_NDEF_DISCOVERED) return
+        if (intent.type != MDL_MIME_TYPE) return
         if (isProcessingCredential) {
             Toast.makeText(this, R.string.toast_processing, Toast.LENGTH_SHORT).show()
             return
@@ -234,6 +238,8 @@ class ScannerActivity : AppCompatActivity() {
         val payload = record?.payload
         if (payload != null) {
             Logger.i(TAG, "NFC payload received for verification")
+        val payload = messages?.firstOrNull()?.records?.firstOrNull()?.payload
+        if (payload != null) {
             isProcessingCredential = true
             updateState(ScannerState.VERIFYING)
             verifyAndPersist(parser.parseFromNfc(payload))
@@ -303,6 +309,7 @@ class ScannerActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val latest = verificationDao.latest(10)
             latest.forEach { Logger.d(TAG, "DB entry: ${'$'}it") }
+            latest.forEach { Logger.d(TAG, "DB entry: $it") }
         }
     }
 
@@ -359,6 +366,8 @@ class ScannerActivity : AppCompatActivity() {
             nfcAdapter?.disableForegroundDispatch(this)
         } catch (throwable: IllegalStateException) {
             Logger.w(TAG, "Failed to disable NFC foreground dispatch", throwable)
+            val latest = verificationDao.latest(10)
+            latest.forEach { Logger.d(TAG, "Verification log: $it") }
         }
     }
 

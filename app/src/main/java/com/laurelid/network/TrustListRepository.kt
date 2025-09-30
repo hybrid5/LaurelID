@@ -19,6 +19,9 @@ class TrustListRepository(private val api: TrustListApi) {
             Logger.e(TAG, "Failed to refresh trust list", throwable)
             throw throwable
         }
+        val remote = api.getTrustList()
+        cache = remote
+        remote
     }
 
     suspend fun get(): Map<String, String> = mutex.withLock {
@@ -30,6 +33,8 @@ class TrustListRepository(private val api: TrustListApi) {
                 remote
             } catch (throwable: Throwable) {
                 Logger.e(TAG, "Unable to load trust list, falling back to cache", throwable)
+                remote
+            } catch (throwable: Throwable) {
                 cache ?: throw throwable
             }
         }
