@@ -17,7 +17,7 @@ class TransactionManager {
             "Printer stub – issuer=${result.issuer}, time=${System.currentTimeMillis()}, status=$status"
         )
     }
-
+    
     companion object {
         private const val TAG = "TransactionManager"
     }

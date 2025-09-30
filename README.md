@@ -14,6 +14,7 @@ Enabling demo mode from the admin console disables camera/NFC input and alternat
 
 ## Log Retention
 Structured JSON verification logs are written to `/data/data/com.laurelid/files/logs/verify.log`. Logs older than 30 days are purged automatically on application startup.
+Update the trust list host by editing `BASE_URL` inside `app/src/main/java/com/laurelid/network/RetrofitModule.kt`. The Retrofit client and in-memory cache will automatically use the new endpoint on the next verification attempt or explicit refresh.
 
 ## Device Owner Provisioning
 See [`DeviceOwnerSetup.md`](DeviceOwnerSetup.md) for step-by-step instructions on making the kiosk the device owner (including `dpm set-device-owner`) so that lock task mode engages automatically on boot.

@@ -23,5 +23,11 @@ class LaurelIdApp : Application() {
     override fun onTerminate() {
         super.onTerminate()
         appScope.cancel()
+import com.laurelid.util.Logger
+
+class LaurelIdApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        Logger.i("App", "LaurelID kiosk application initialized")
     }
 }

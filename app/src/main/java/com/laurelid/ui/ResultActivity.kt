@@ -10,6 +10,8 @@ import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.laurelid.R
 import com.laurelid.util.KioskUtil
@@ -48,7 +50,6 @@ class ResultActivity : AppCompatActivity() {
         val ageOver21 = intent.getBooleanExtra(EXTRA_AGE_OVER_21, false)
         val issuer = intent.getStringExtra(EXTRA_ISSUER).orEmpty()
         val error = intent.getStringExtra(EXTRA_ERROR)
-
         val root: ConstraintLayout = findViewById(R.id.resultRoot)
         val titleView: TextView = findViewById(R.id.resultTitle)
         val detailView: TextView = findViewById(R.id.resultDetail)
@@ -96,6 +97,21 @@ class ResultActivity : AppCompatActivity() {
             playTogether(animations)
             start()
         }
+        val titleView: TextView = findViewById(R.id.resultTitle)
+        val detailView: TextView = findViewById(R.id.resultDetail)
+        val issuerView: TextView = findViewById(R.id.resultIssuer)
+
+        if (success) {
+            titleView.text = getString(R.string.result_verified)
+            titleView.setTextColor(ContextCompat.getColor(this, R.color.verification_success))
+            detailView.text = getString(R.string.result_details_success, if (ageOver21) "21+" else "Under 21")
+        } else {
+            titleView.text = getString(R.string.result_rejected)
+            titleView.setTextColor(ContextCompat.getColor(this, R.color.verification_failure))
+            detailView.text = error ?: getString(R.string.result_details_error)
+        }
+
+        issuerView.text = getString(R.string.result_issuer, issuer.ifEmpty { getString(R.string.result_unknown_issuer) })
     }
 
     private fun scheduleReturn() {
@@ -113,5 +129,6 @@ class ResultActivity : AppCompatActivity() {
         const val EXTRA_ISSUER = "extra_issuer"
         const val EXTRA_ERROR = "extra_error"
         private const val RESULT_DISPLAY_DELAY_MS = 5000L
+        private const val RESULT_DISPLAY_DELAY_MS = 4000L
     }
 }

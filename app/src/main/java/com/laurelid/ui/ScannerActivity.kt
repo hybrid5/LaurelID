@@ -19,6 +19,14 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.nfc.NdefMessage
+import android.nfc.NfcAdapter
+import android.os.Build
+import android.os.Bundle
+import android.view.View
+import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -62,6 +70,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.laurelid.util.Logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.text.Charsets
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class ScannerActivity : AppCompatActivity() {
 
@@ -83,6 +98,10 @@ class ScannerActivity : AppCompatActivity() {
 
     private var trustListRepository: TrustListRepository? = null
     private var walletVerifier: WalletVerifier? = null
+    private val trustListRepository by lazy {
+        TrustListRepository(RetrofitModule.provideTrustListApi(applicationContext))
+    }
+    private val walletVerifier by lazy { WalletVerifier(trustListRepository) }
     private val verificationDao by lazy { DbModule.provideVerificationDao(applicationContext) }
     private val transactionManager = TransactionManager()
 
@@ -124,6 +143,10 @@ class ScannerActivity : AppCompatActivity() {
             requestCameraPermission()
             handleNfcIntent(intent)
         }
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        bindViews()
+        requestCameraPermission()
+        handleNfcIntent(intent)
     }
 
     override fun onResume() {
@@ -147,6 +170,11 @@ class ScannerActivity : AppCompatActivity() {
         } else {
             disableForegroundDispatch()
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startCamera()
+        }
+        KioskUtil.setImmersiveMode(window)
+        enableForegroundDispatch()
         try {
             startLockTask()
         } catch (throwable: IllegalStateException) {
@@ -166,6 +194,7 @@ class ScannerActivity : AppCompatActivity() {
         if (!currentConfig.demoMode) {
             handleNfcIntent(intent)
         }
+        handleNfcIntent(intent)
     }
 
     override fun onDestroy() {
@@ -251,6 +280,7 @@ class ScannerActivity : AppCompatActivity() {
         if (currentConfig.demoMode) {
             return
         }
+    private fun requestCameraPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             startCamera()
         } else {
@@ -260,6 +290,7 @@ class ScannerActivity : AppCompatActivity() {
 
     private fun startCamera() {
         if (currentConfig.demoMode || isProcessingCredential) {
+        if (isProcessingCredential) {
             return
         }
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -329,6 +360,19 @@ class ScannerActivity : AppCompatActivity() {
         if (intent == null || currentConfig.demoMode) return
         val action = intent.action ?: return
         if (action != NfcAdapter.ACTION_NDEF_DISCOVERED) return
+        Logger.i(TAG, "QR payload received for verification")
+        isProcessingCredential = true
+        cameraProvider?.unbindAll()
+        updateState(ScannerState.VERIFYING)
+        val parsed = parser.parseFromQrPayload(payload)
+        verifyAndPersist(parsed)
+    }
+
+    private fun handleNfcIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action ?: return
+        if (action != NfcAdapter.ACTION_NDEF_DISCOVERED) return
+        if (intent.type != MDL_MIME_TYPE) return
         if (isProcessingCredential) {
             Toast.makeText(this, R.string.toast_processing, Toast.LENGTH_SHORT).show()
             return
@@ -349,6 +393,11 @@ class ScannerActivity : AppCompatActivity() {
             isProcessingCredential = true
             updateState(ScannerState.VERIFYING)
             verifyAndPersist(parser.parseFromNfc(payload), demoPayloadUsed = false)
+        val payload = messages?.firstOrNull()?.records?.firstOrNull()?.payload
+        if (payload != null) {
+            isProcessingCredential = true
+            updateState(ScannerState.VERIFYING)
+            verifyAndPersist(parser.parseFromNfc(payload))
         } else {
             Toast.makeText(this, R.string.toast_nfc_error, Toast.LENGTH_LONG).show()
         }
@@ -369,6 +418,9 @@ class ScannerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val verifier = ensureWalletVerifier(configSnapshot)
             val verification = runCatching { verifier.verify(parsed, refreshMillis) }
+    private fun verifyAndPersist(parsed: ParsedMdoc) {
+        lifecycleScope.launch {
+            val verification = runCatching { walletVerifier.verify(parsed) }
                 .getOrElse { throwable ->
                     Logger.e(TAG, "Verification failed", throwable)
                     VerificationResult(
@@ -384,6 +436,12 @@ class ScannerActivity : AppCompatActivity() {
             persistResult(verification, configSnapshot, demoPayloadUsed)
             transactionManager.record(verification)
             transactionManager.printResult(verification)
+                        error = throwable.message ?: "Verification failure"
+                    )
+                }
+
+            persistResult(verification)
+            transactionManager.record(verification)
             navigateToResult(verification)
         }
     }
@@ -436,11 +494,13 @@ class ScannerActivity : AppCompatActivity() {
     private fun dumpLatestVerifications() {
         lifecycleScope.launch(Dispatchers.IO) {
             val latest = verificationDao.latest(10)
+            latest.forEach { Logger.d(TAG, "DB entry: ${'$'}it") }
             latest.forEach { Logger.d(TAG, "DB entry: $it") }
         }
     }
 
     private suspend fun persistResult(result: VerificationResult, config: AdminConfig, demoPayloadUsed: Boolean) {
+    private suspend fun persistResult(result: VerificationResult) {
         withContext(Dispatchers.IO) {
             val entity = VerificationEntity(
                 success = result.success,
@@ -493,6 +553,13 @@ class ScannerActivity : AppCompatActivity() {
         }
         nextDemoSuccess = !nextDemoSuccess
         return payload
+                tsMillis = System.currentTimeMillis()
+            )
+            verificationDao.insert(entity)
+            Logger.i(TAG, "Stored verification result for subject ${'$'}{result.subjectDid}")
+            val latest = verificationDao.latest(10)
+            latest.forEach { Logger.d(TAG, "Verification log: ${'$'}it") }
+        }
     }
 
     private fun enableForegroundDispatch() {
@@ -549,6 +616,8 @@ class ScannerActivity : AppCompatActivity() {
                 walletVerifier = WalletVerifier(trustListRepository!!)
                 currentBaseUrl = RetrofitModule.DEFAULT_BASE_URL
             }
+            val latest = verificationDao.latest(10)
+            latest.forEach { Logger.d(TAG, "Verification log: $it") }
         }
     }
 

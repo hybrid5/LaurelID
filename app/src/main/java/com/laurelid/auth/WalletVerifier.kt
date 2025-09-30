@@ -9,6 +9,9 @@ class WalletVerifier(private val trustListRepository: TrustListRepository) {
     suspend fun verify(parsed: ParsedMdoc, maxCacheAgeMillis: Long): VerificationResult {
         val trustList = try {
             trustListRepository.getOrRefresh(maxCacheAgeMillis)
+    suspend fun verify(parsed: ParsedMdoc): VerificationResult {
+        val trustList = try {
+            trustListRepository.get()
         } catch (throwable: Throwable) {
             Logger.w(TAG, "Trust list fetch failed, falling back to cache", throwable)
             trustListRepository.cached() ?: emptyMap()
