@@ -1,5 +1,7 @@
 package com.laurelid.data
 
 data class Transaction(
-    // Add fields here
+    val id: String,
+    val verificationResult: VerificationResult,
+    val createdAtMillis: Long
 )
