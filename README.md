@@ -1,6 +1,19 @@
 # LaurelID Kiosk MVP
 
 ## Trust List Endpoint
+Update the trust list host by editing `DEFAULT_BASE_URL` inside `app/src/main/java/com/laurelid/network/RetrofitModule.kt` or by entering an override URL in the admin settings screen. The Retrofit client and in-memory cache will automatically use the new endpoint on the next verification attempt or explicit refresh.
+
+## Admin & Configuration Mode
+- From the scanner screen, long-press anywhere on the display for five seconds to reveal the PIN prompt.
+- Enter the default admin PIN (`123456`) to open the admin console.
+- Configure the venue ID, trust list refresh interval (minutes), optional API endpoint override, and toggle demo mode.
+- Settings persist via `SharedPreferences` and are applied the next time the scanner resumes.
+
+## Demo Mode
+Enabling demo mode from the admin console disables camera/NFC input and alternates between simulated 21+ and under-21 payloads. Each simulated verification is logged so operators know demo data was used.
+
+## Log Retention
+Structured JSON verification logs are written to `/data/data/com.laurelid/files/logs/verify.log`. Logs older than 30 days are purged automatically on application startup.
 Update the trust list host by editing `BASE_URL` inside `app/src/main/java/com/laurelid/network/RetrofitModule.kt`. The Retrofit client and in-memory cache will automatically use the new endpoint on the next verification attempt or explicit refresh.
 
 ## Device Owner Provisioning

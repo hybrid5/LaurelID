@@ -6,6 +6,9 @@ import com.laurelid.util.Logger
 
 class WalletVerifier(private val trustListRepository: TrustListRepository) {
 
+    suspend fun verify(parsed: ParsedMdoc, maxCacheAgeMillis: Long): VerificationResult {
+        val trustList = try {
+            trustListRepository.getOrRefresh(maxCacheAgeMillis)
     suspend fun verify(parsed: ParsedMdoc): VerificationResult {
         val trustList = try {
             trustListRepository.get()

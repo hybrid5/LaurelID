@@ -11,8 +11,19 @@
     <string name="result_details_error">Verification failed</string>
     <string name="result_issuer">Issuer: %1$s</string>
     <string name="result_unknown_issuer">Unknown issuer</string>
+    <string name="result_success_detail">Patron verified • %1$s</string>
+    <string name="result_failure_detail">Unable to verify • %1$s</string>
     <string name="login_placeholder">Operator login placeholder</string>
     <string name="error_camera_permission">Camera permission is required for scanning</string>
     <string name="toast_processing">Already processing credential…</string>
     <string name="toast_nfc_error">Unable to read NFC credential</string>
+    <string name="admin_title">Administrator Settings</string>
+    <string name="admin_venue_id">Venue ID</string>
+    <string name="admin_trust_refresh">Trust list refresh (minutes)</string>
+    <string name="admin_api_endpoint">Trust list API endpoint override</string>
+    <string name="admin_demo_mode">Enable demo mode</string>
+    <string name="admin_save">Save configuration</string>
+    <string name="admin_saved">Settings updated</string>
+    <string name="admin_pin_prompt">Enter 6-digit admin PIN</string>
+    <string name="admin_pin_error">Incorrect PIN</string>
 </resources>
