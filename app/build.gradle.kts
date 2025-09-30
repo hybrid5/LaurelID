@@ -1,23 +1,15 @@
 plugins {
-    id("com.android.application") version "8.7.1" apply false
-    kotlin("android") version "2.0.20" apply false
-    id("com.google.devtools.ksp") version "2.0.20-1.0.24" apply false
-}
-
-task("clean", Delete::class) { delete(rootProject.buildDir) }
-
-
-plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
 }
 
 android {
-    namespace = "com.example.laurelid"
+    namespace = "com.laurelid"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.laurelid"
+        applicationId = "com.laurelid"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -45,10 +37,29 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
+
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.room.compiler)
+
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.moshi)
+    implementation(libs.moshi.kotlin)
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.logging)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
