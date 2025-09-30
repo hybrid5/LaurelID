@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">Laurel ID</string>
+    <string name="scanner_status_scanning">Scanning…</string>
+    <string name="scanner_status_verifying">Verifying…</string>
+    <string name="scanner_status_ready">Ready</string>
+    <string name="scanner_hint">Align QR code or tap ID to reader</string>
+    <string name="scanner_debug_button">Dump recent logs</string>
+    <string name="result_verified">VERIFIED</string>
+    <string name="result_rejected">REJECTED</string>
+    <string name="result_details_success">Age confirmed: %1$s</string>
+    <string name="result_details_error">Verification failed</string>
+    <string name="result_issuer">Issuer: %1$s</string>
+    <string name="result_unknown_issuer">Unknown issuer</string>
+    <string name="login_placeholder">Operator login placeholder</string>
+    <string name="error_camera_permission">Camera permission is required for scanning</string>
+    <string name="toast_processing">Already processing credential…</string>
+    <string name="toast_nfc_error">Unable to read NFC credential</string>
 </resources>
