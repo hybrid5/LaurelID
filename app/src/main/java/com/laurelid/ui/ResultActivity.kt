@@ -35,6 +35,10 @@ class ResultActivity : AppCompatActivity() {
         }
     }
 
+    override fun onBackPressed() {
+        // Disable back navigation while in kiosk mode.
+    }
+
     private fun bindResult() {
         val success = intent.getBooleanExtra(EXTRA_SUCCESS, false)
         val ageOver21 = intent.getBooleanExtra(EXTRA_AGE_OVER_21, false)

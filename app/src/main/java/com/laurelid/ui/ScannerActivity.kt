@@ -1,6 +1,12 @@
 package com.laurelid.ui
 
 import android.Manifest
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.nfc.NdefMessage
+import android.nfc.NdefRecord
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.nfc.NdefMessage
@@ -41,6 +47,7 @@ import com.laurelid.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.text.Charsets
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -71,6 +78,9 @@ class ScannerActivity : AppCompatActivity() {
     private var cameraProvider: ProcessCameraProvider? = null
     private var isProcessingCredential = false
     private var currentState: ScannerState = ScannerState.SCANNING
+    private var nfcAdapter: NfcAdapter? = null
+    private var nfcPendingIntent: PendingIntent? = null
+    private var nfcIntentFilters: Array<IntentFilter>? = null
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -86,6 +96,7 @@ class ScannerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_scanner)
         KioskUtil.applyKioskDecor(window)
         KioskUtil.blockBackPress(this)
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         bindViews()
         requestCameraPermission()
         handleNfcIntent(intent)
@@ -97,11 +108,17 @@ class ScannerActivity : AppCompatActivity() {
             startCamera()
         }
         KioskUtil.setImmersiveMode(window)
+        enableForegroundDispatch()
         try {
             startLockTask()
         } catch (throwable: IllegalStateException) {
             Logger.w(TAG, "Unable to enter lock task mode", throwable)
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        disableForegroundDispatch()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -114,6 +131,10 @@ class ScannerActivity : AppCompatActivity() {
         super.onDestroy()
         cameraExecutor.shutdown()
         barcodeScanner.close()
+    }
+
+    override fun onBackPressed() {
+        // Block hardware/software back press in kiosk mode.
     }
 
     private fun bindViews() {
@@ -187,6 +208,7 @@ class ScannerActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.toast_processing, Toast.LENGTH_SHORT).show()
             return
         }
+        Logger.i(TAG, "QR payload received for verification")
         isProcessingCredential = true
         cameraProvider?.unbindAll()
         updateState(ScannerState.VERIFYING)
@@ -209,6 +231,13 @@ class ScannerActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)?.mapNotNull { it as? NdefMessage }?.toTypedArray()
         }
+        val record = messages?.firstOrNull()?.records?.firstOrNull { candidate ->
+            candidate.tnf == NdefRecord.TNF_MIME_MEDIA &&
+                String(candidate.type, Charsets.US_ASCII) == MDL_MIME_TYPE
+        }
+        val payload = record?.payload
+        if (payload != null) {
+            Logger.i(TAG, "NFC payload received for verification")
         val payload = messages?.firstOrNull()?.records?.firstOrNull()?.payload
         if (payload != null) {
             isProcessingCredential = true
@@ -279,6 +308,7 @@ class ScannerActivity : AppCompatActivity() {
     private fun dumpLatestVerifications() {
         lifecycleScope.launch(Dispatchers.IO) {
             val latest = verificationDao.latest(10)
+            latest.forEach { Logger.d(TAG, "DB entry: ${'$'}it") }
             latest.forEach { Logger.d(TAG, "DB entry: $it") }
         }
     }
@@ -295,6 +325,47 @@ class ScannerActivity : AppCompatActivity() {
                 tsMillis = System.currentTimeMillis()
             )
             verificationDao.insert(entity)
+            Logger.i(TAG, "Stored verification result for subject ${'$'}{result.subjectDid}")
+            val latest = verificationDao.latest(10)
+            latest.forEach { Logger.d(TAG, "Verification log: ${'$'}it") }
+        }
+    }
+
+    private fun enableForegroundDispatch() {
+        val adapter = nfcAdapter ?: return
+        if (nfcPendingIntent == null) {
+            val intent = Intent(this, javaClass).apply {
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+            nfcPendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
+        }
+        if (nfcIntentFilters == null) {
+            val filter = IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                try {
+                    addDataType(MDL_MIME_TYPE)
+                } catch (error: IntentFilter.MalformedMimeTypeException) {
+                    Logger.e(TAG, "Failed to register NFC MIME type", error)
+                }
+            }
+            nfcIntentFilters = arrayOf(filter)
+        }
+        val pendingIntent = nfcPendingIntent ?: return
+        val intentFilters = nfcIntentFilters
+        try {
+            adapter.enableForegroundDispatch(this, pendingIntent, intentFilters, null)
+        } catch (throwable: IllegalStateException) {
+            Logger.e(TAG, "Failed to enable NFC foreground dispatch", throwable)
+        }
+    }
+
+    private fun disableForegroundDispatch() {
+        try {
+            nfcAdapter?.disableForegroundDispatch(this)
+        } catch (throwable: IllegalStateException) {
+            Logger.w(TAG, "Failed to disable NFC foreground dispatch", throwable)
             val latest = verificationDao.latest(10)
             latest.forEach { Logger.d(TAG, "Verification log: $it") }
         }

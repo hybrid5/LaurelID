@@ -5,3 +5,4 @@
 /captures
 /.cxx
 *.iml
+/gradle/local-distributions/*.zip

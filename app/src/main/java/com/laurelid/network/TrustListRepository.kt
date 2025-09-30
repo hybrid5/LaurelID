@@ -1,5 +1,6 @@
 package com.laurelid.network
 
+import com.laurelid.util.Logger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -9,6 +10,15 @@ class TrustListRepository(private val api: TrustListApi) {
     private var cache: Map<String, String>? = null
 
     suspend fun refresh(): Map<String, String> = mutex.withLock {
+        try {
+            val remote = api.getTrustList()
+            cache = remote
+            Logger.i(TAG, "Trust list refreshed with ${'$'}{remote.size} entries")
+            remote
+        } catch (throwable: Throwable) {
+            Logger.e(TAG, "Failed to refresh trust list", throwable)
+            throw throwable
+        }
         val remote = api.getTrustList()
         cache = remote
         remote
@@ -19,6 +29,10 @@ class TrustListRepository(private val api: TrustListApi) {
             try {
                 val remote = api.getTrustList()
                 cache = remote
+                Logger.i(TAG, "Loaded trust list with ${'$'}{remote.size} entries")
+                remote
+            } catch (throwable: Throwable) {
+                Logger.e(TAG, "Unable to load trust list, falling back to cache", throwable)
                 remote
             } catch (throwable: Throwable) {
                 cache ?: throw throwable
@@ -27,4 +41,8 @@ class TrustListRepository(private val api: TrustListApi) {
     }
 
     fun cached(): Map<String, String>? = cache
+
+    private companion object {
+        private const val TAG = "TrustListRepo"
+    }
 }
